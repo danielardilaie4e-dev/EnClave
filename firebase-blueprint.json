@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Core user profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "role": { "type": "string", "enum": ["musician", "employer"] },
+        "bio": { "type": "string" },
+        "location": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "MusicianProfile": {
+      "title": "Musician Profile",
+      "description": "Specific details for musicians",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "genres": { "type": "array", "items": { "type": "string" } },
+        "instruments": { "type": "array", "items": { "type": "string" } },
+        "experienceYears": { "type": "number" },
+        "portfolioLinks": { "type": "array", "items": { "type": "string", "format": "uri" } },
+        "technicalRequirements": { "type": "string" },
+        "formats": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["uid"]
+    },
+    "EmployerProfile": {
+      "title": "Employer Profile",
+      "description": "Specific details for employers",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "businessName": { "type": "string" },
+        "businessType": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "required": ["uid"]
+    },
+    "Job": {
+      "title": "Job",
+      "description": "A musical gig or job offer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employerId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "genre": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "time": { "type": "string" },
+        "location": { "type": "string" },
+        "budget": { "type": "number" },
+        "status": { "type": "string", "enum": ["open", "closed", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["employerId", "title", "date", "status"]
+    },
+    "Contract": {
+      "title": "Contract",
+      "description": "A formal agreement between a musician and an employer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "jobId": { "type": "string" },
+        "musicianId": { "type": "string" },
+        "employerId": { "type": "string" },
+        "terms": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "signed", "paid"] },
+        "amount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["jobId", "musicianId", "employerId", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A rating and comment for a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fromId": { "type": "string" },
+        "toId": { "type": "string" },
+        "jobId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fromId", "toId", "jobId", "rating"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/musician_profiles/{uid}": {
+      "schema": "MusicianProfile",
+      "description": "Musician specific details"
+    },
+    "/employer_profiles/{uid}": {
+      "schema": "EmployerProfile",
+      "description": "Employer specific details"
+    },
+    "/jobs/{jobId}": {
+      "schema": "Job",
+      "description": "Job postings"
+    },
+    "/contracts/{contractId}": {
+      "schema": "Contract",
+      "description": "Hiring contracts"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "User reviews"
+    }
+  }
+}
