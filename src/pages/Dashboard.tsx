@@ -110,9 +110,6 @@ export default function Dashboard() {
           <TabsTrigger value="active" className="rounded-lg px-6 h-10 data-[state=active]:bg-white data-[state=active]:shadow-sm">
             {profile.role === 'employer' ? 'Mis Publicaciones' : 'Oportunidades Disponibles'}
           </TabsTrigger>
-          <TabsTrigger value="history" className="rounded-lg px-6 h-10 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            Historial
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="space-y-6">
@@ -245,11 +242,6 @@ export default function Dashboard() {
           )}
         </TabsContent>
 
-        <TabsContent value="history">
-          <div className="text-center py-20 text-muted-foreground">
-            El historial de presentaciones aparecerá aquí.
-          </div>
-        </TabsContent>
       </Tabs>
 
       <CreateJobDialog 

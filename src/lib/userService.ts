@@ -1,6 +1,7 @@
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, storage } from './firebase';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { SubscriptionPlan } from './subscriptionPlans';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -42,6 +43,7 @@ export interface UserProfile {
   verified?: boolean;
   rating?: number;
   reviewCount?: number;
+  subscription?: SubscriptionPlan;
   createdAt?: any;
 }
 
@@ -97,6 +99,7 @@ export const createUserProfile = async (profile: UserProfile) => {
     verified: false,
     rating: 0,
     reviewCount: 0,
+    subscription: profile.subscription || 'free',
   }));
 
   await setDoc(docRef, data);

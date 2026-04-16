@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../lib/useAuth';
-import { createJob, Job, JobFaq, JobMediaItem, updateJob } from '../../lib/jobService';
+import { createJob, Job, JobFaq, JobMediaItem, updateJob, getEmployerJobs } from '../../lib/jobService';
+import { canCreateJob } from '../../lib/subscriptionUtils';
 import {
   Dialog,
   DialogContent,
@@ -132,6 +133,15 @@ export default function CreateJobDialog({ isOpen, onClose, onSuccess, jobToEdit 
     if (formData.coverImageURL.trim() && !/^https?:\/\//.test(formData.coverImageURL.trim())) {
       toast.error('La imagen de portada debe iniciar con http:// o https://');
       return;
+    }
+
+    // Check subscription limits for new jobs
+    if (!isEditMode) {
+      const employerJobs = await getEmployerJobs(profile.uid);
+      if (!canCreateJob(profile, employerJobs.length)) {
+        toast.error('Has alcanzado el límite de eventos para tu plan actual. Actualiza tu suscripción para publicar más.');
+        return;
+      }
     }
 
     const payload = {

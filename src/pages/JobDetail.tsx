@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../lib/useAuth';
-import { applyToJob, getJobApplications, getJobById, hasUserAppliedToJob, Job, JobApplication } from '../lib/jobService';
+import { applyToJob, finalizeJobWithReview, getJobApplications, getJobById, hasUserAppliedToJob, Job, JobApplication } from '../lib/jobService';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
+import { Textarea } from '../components/ui/textarea';
 import { Calendar, Clock, DollarSign, MapPin, Users } from 'lucide-react';
 
 const getYoutubeId = (url: string) => {
@@ -40,6 +41,10 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [reviewingApplicationId, setReviewingApplicationId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState('5');
+  const [reviewComment, setReviewComment] = useState('');
+  const [finalizing, setFinalizing] = useState(false);
 
   const fetchJob = async () => {
     if (!jobId) return;
@@ -96,12 +101,6 @@ export default function JobDetail() {
       return;
     }
 
-    if (job?.id?.startsWith('demo-')) {
-      setAlreadyApplied(true);
-      toast.success('Postulación demo enviada.');
-      return;
-    }
-
     setSubmitting(true);
     try {
       await applyToJob({
@@ -113,6 +112,8 @@ export default function JobDetail() {
         musicianBio: profile.bio,
       });
       setAlreadyApplied(true);
+      // Refrescar datos después de aplicar exitosamente
+      await fetchJob();
       toast.success('Postulación enviada correctamente.');
     } catch (error) {
       const errorCode = (error as { code?: string })?.code;
@@ -129,6 +130,48 @@ export default function JobDetail() {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleFinalizeWithReview = async (application: JobApplication) => {
+    if (!job || !profile) return;
+
+    const parsedRating = Number(reviewRating);
+    if (!Number.isFinite(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      toast.error('La calificación debe estar entre 1 y 5.');
+      return;
+    }
+
+    if (!reviewComment.trim()) {
+      toast.error('Escribe una reseña antes de finalizar.');
+      return;
+    }
+
+    setFinalizing(true);
+    try {
+      await finalizeJobWithReview(
+        job.id!,
+        profile.uid,
+        profile.displayName,
+        application,
+        parsedRating,
+        reviewComment.trim()
+      );
+      toast.success('Evento finalizado y reseña registrada.');
+      setReviewingApplicationId(null);
+      setReviewComment('');
+      setReviewRating('5');
+      await fetchJob();
+    } catch (error) {
+      console.error('Error finalizing event:', error);
+      const code = (error as { code?: string })?.code;
+      if (code === 'review/already-exists') {
+        toast.info('Este artista ya fue reseñado para este gig.');
+      } else {
+        toast.error('No se pudo finalizar el evento con reseña.');
+      }
+    } finally {
+      setFinalizing(false);
     }
   };
 
@@ -166,6 +209,11 @@ export default function JobDetail() {
         <CardHeader>
           <CardTitle className="text-3xl">{job.title}</CardTitle>
           <CardDescription className="text-base">{job.description}</CardDescription>
+          <div>
+            <Button variant="link" className="px-0" asChild>
+              <Link to={`/business/${job.employerId}`}>Ver perfil del negocio</Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
@@ -244,14 +292,66 @@ export default function JobDetail() {
               <p className="text-sm text-muted-foreground">Aún no tienes postulaciones para este gig.</p>
             ) : (
               applications.map((item) => (
-                <div key={item.id} className="rounded-xl border p-3 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-semibold">{item.musicianName}</p>
-                    <p className="text-xs text-muted-foreground">{item.musicianEmail}</p>
+                <div key={item.id} className="rounded-xl border p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold">{item.musicianName}</p>
+                      <p className="text-xs text-muted-foreground">{item.musicianEmail}</p>
+                      <p className="text-xs text-muted-foreground capitalize">Estado: {item.status}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" asChild className="rounded-xl">
+                        <Link to={`/artists/${item.musicianId}`}>Ver perfil</Link>
+                      </Button>
+                      {job.status !== 'completed' && (
+                        <Button
+                          variant="secondary"
+                          className="rounded-xl"
+                          onClick={() => {
+                            setReviewingApplicationId(item.id || null);
+                            setReviewRating('5');
+                            setReviewComment('');
+                          }}
+                        >
+                          Finalizar y reseñar
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Button variant="outline" asChild className="rounded-xl">
-                    <Link to={`/artists/${item.musicianId}`}>Ver perfil</Link>
-                  </Button>
+
+                  {reviewingApplicationId === item.id && (
+                    <div className="rounded-xl bg-slate-50 p-3 space-y-3">
+                      <p className="text-sm font-semibold">Calificar al artista y finalizar este gig</p>
+                      <div className="grid sm:grid-cols-4 gap-2 items-center">
+                        <label className="text-sm text-muted-foreground">Calificación</label>
+                        <select
+                          className="sm:col-span-3 rounded-xl h-10 px-3 border bg-background"
+                          value={reviewRating}
+                          onChange={(e) => setReviewRating(e.target.value)}
+                        >
+                          <option value="5">5 - Excelente</option>
+                          <option value="4">4 - Muy bueno</option>
+                          <option value="3">3 - Bueno</option>
+                          <option value="2">2 - Regular</option>
+                          <option value="1">1 - Deficiente</option>
+                        </select>
+                      </div>
+                      <Textarea
+                        className="rounded-xl min-h-[90px]"
+                        placeholder="Escribe una reseña breve sobre puntualidad, calidad y trato profesional."
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="ghost" onClick={() => setReviewingApplicationId(null)} disabled={finalizing}>
+                          Cancelar
+                        </Button>
+                        <Button onClick={() => handleFinalizeWithReview(item)} disabled={finalizing}>
+                          {finalizing ? 'Finalizando...' : 'Guardar reseña y finalizar'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}

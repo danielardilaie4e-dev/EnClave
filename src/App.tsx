@@ -6,10 +6,13 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Jobs from './pages/Jobs';
+import Applications from './pages/Applications';
 import Onboarding from './pages/Onboarding';
 import Auth from './pages/Auth';
 import JobDetail from './pages/JobDetail';
 import ArtistProfile from './pages/ArtistProfile';
+import EmployerProfile from './pages/EmployerProfile';
+import SubscriptionPlansPage from './pages/SubscriptionPlansPage';
 import { hasOnboardingIntent } from './lib/onboardingIntent';
 
 function AppRoutes() {
@@ -31,7 +34,9 @@ function AppRoutes() {
           <Route path="/" element={<Home />} />
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/jobs/:jobId" element={<JobDetail />} />
+          <Route path="/applications" element={user ? <Applications /> : <Navigate to="/auth" replace />} />
           <Route path="/artists/:uid" element={user ? <ArtistProfile /> : <Navigate to="/auth" replace />} />
+          <Route path="/business/:uid" element={user ? <EmployerProfile /> : <Navigate to="/auth" replace />} />
           <Route
             path="/auth"
             element={
@@ -61,6 +66,14 @@ function AppRoutes() {
             element={
               user
                 ? (profile ? <Profile /> : <Navigate to="/onboarding" replace />)
+                : <Navigate to="/" replace />
+            }
+          />
+          <Route 
+            path="/subscription-plans" 
+            element={
+              user
+                ? (profile ? <SubscriptionPlansPage /> : <Navigate to="/onboarding" replace />)
                 : <Navigate to="/" replace />
             }
           />

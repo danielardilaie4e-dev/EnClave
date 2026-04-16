@@ -7,9 +7,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Music, Building2, ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { Badge } from '../components/ui/badge';
+import { Music, Building2, ArrowRight, Plus, Trash2, Check, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { clearOnboardingIntent, hasOnboardingIntent } from '../lib/onboardingIntent';
+import { SubscriptionPlan, SUBSCRIPTION_PLANS, getPlanDetails } from '../lib/subscriptionPlans';
 
 const SOCIAL_OPTIONS: { value: SocialPlatform; label: string }[] = [
   { value: 'facebook', label: 'Facebook' },
@@ -53,6 +55,7 @@ export default function Onboarding() {
   const [role, setRole] = useState<'musician' | 'employer' | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('free');
   const [formData, setFormData] = useState({
     fullName: '',
     documentId: '',
@@ -249,6 +252,7 @@ export default function Onboarding() {
         hasAgeRestriction: role === 'employer' ? formData.hasAgeRestriction === 'si' : undefined,
         minEntryAge: role === 'employer' && formData.hasAgeRestriction === 'si' ? Number(formData.minEntryAge) : undefined,
         maxEntryAge: role === 'employer' && formData.hasAgeRestriction === 'si' && formData.maxEntryAge.trim() ? Number(formData.maxEntryAge) : undefined,
+        subscription: selectedPlan,
         ...(hasValidPhotoURL ? { photoURL: user.photoURL! } : {}),
       };
       await createUserProfile(profile);
@@ -574,15 +578,131 @@ export default function Onboarding() {
             <CardFooter className="p-8 pt-0 flex flex-col gap-4">
               <Button 
                 className="w-full h-14 rounded-full text-lg font-bold" 
-                onClick={handleComplete}
+                onClick={() => setStep(3)}
                 disabled={loading}
               >
-                {loading ? 'Guardando...' : 'Finalizar Registro'}
+                Continuar
+                <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
               <Button variant="ghost" className="w-full" onClick={() => setStep(1)} disabled={loading}>
                 Volver
               </Button>
             </CardFooter>
+          </Card>
+        )}
+
+        {step === 3 && (
+          <Card className="rounded-3xl shadow-xl border-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <CardHeader className="text-center pt-8 pb-4">
+              <CardTitle className="text-3xl font-bold">Elige tu Plan de Suscripción</CardTitle>
+              <CardDescription className="text-base mt-2">
+                Selecciona el plan que mejor se ajuste a tus necesidades.
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="px-8 py-6">
+              <div className="grid md:grid-cols-3 gap-6 mb-8">
+                {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => {
+                  const planKey = key as SubscriptionPlan;
+                  const isSelected = planKey === selectedPlan;
+
+                  return (
+                    <button
+                      key={planKey}
+                      onClick={() => setSelectedPlan(planKey)}
+                      className={`relative rounded-2xl border-2 p-6 text-left transition-all hover:shadow-lg ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : planKey === 'premium'
+                          ? 'border-yellow-400 bg-white hover:border-yellow-500'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      {/* Checkmark para plan seleccionado */}
+                      {isSelected && (
+                        <div className="absolute top-4 right-4">
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Badge Más Popular */}
+                      {planKey === 'premium' && (
+                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                          <Badge className="bg-yellow-400 text-slate-900 font-semibold">
+                            <Star className="w-3 h-3 mr-1 fill-current" />
+                            Más Popular
+                          </Badge>
+                        </div>
+                      )}
+
+                      {/* Contenido */}
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-2xl font-bold text-slate-900">{plan.name}</h3>
+                          <p className="text-3xl font-bold text-primary mt-1">{plan.price}</p>
+                        </div>
+
+                        <ul className="space-y-2">
+                          {role === 'employer' ? (
+                            <>
+                              <li className="flex items-center gap-2 text-sm">
+                                <Check className="w-4 h-4 text-green-500" />
+                                <span>
+                                  Publicar hasta {plan.benefits.eventsPerMonth === -1 ? 'ilimitados' : plan.benefits.eventsPerMonth} eventos
+                                </span>
+                              </li>
+                              <li className="flex items-center gap-2 text-sm">
+                                <Check className="w-4 h-4 text-green-500" />
+                                <span>
+                                  Contratar hasta {plan.benefits.hiresPerMonth === -1 ? 'ilimitado' : plan.benefits.hiresPerMonth} artistas
+                                </span>
+                              </li>
+                              <li className="flex items-center gap-2 text-sm">
+                                <Check className="w-4 h-4 text-green-500" />
+                                <span>Visibilidad: {plan.benefits.visibility}</span>
+                              </li>
+                            </>
+                          ) : (
+                            <>
+                              <li className="flex items-center gap-2 text-sm">
+                                <Check className="w-4 h-4 text-green-500" />
+                                <span>Visibilidad: {plan.benefits.visibility}</span>
+                              </li>
+                              <li className="flex items-center gap-2 text-sm">
+                                <Check className="w-4 h-4 text-green-500" />
+                                <span>
+                                  {plan.benefits.suggestedProfiles ? 'Aparecer en perfiles sugeridos' : 'Sin aparecer en sugeridos'}
+                                </span>
+                              </li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center mb-6">
+                * Los precios son simulados. En una implementación real, se integraría una pasarela de pago.
+              </p>
+            </CardContent>
+
+            {/* Buttons */}
+            <div className="px-8 pb-8 flex flex-col gap-3">
+              <Button 
+                className="w-full h-14 rounded-full text-base font-bold" 
+                onClick={handleComplete}
+                disabled={loading}
+              >
+                {loading ? 'Guardando...' : 'Finalizar Registro'}
+              </Button>
+              <Button variant="ghost" className="w-full h-10" onClick={() => setStep(2)} disabled={loading}>
+                Volver
+              </Button>
+            </div>
           </Card>
         )}
       </div>

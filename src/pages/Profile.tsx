@@ -19,6 +19,8 @@ import {
   Camera
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { getPlanDetails } from '../lib/subscriptionPlans';
 
 const isValidVideoLink = (url: string) => {
   const normalized = url.trim();
@@ -92,7 +94,9 @@ const dataUrlToBlob = (dataUrl: string) => {
 
 export default function Profile() {
   const { profile, refreshProfile } = useAuth();
+  const navigate = useNavigate();
   const socialLinks = Array.isArray(profile?.socialLinks) ? profile.socialLinks : [];
+  const hasReviews = (profile.reviewCount || 0) > 0;
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     displayName: profile?.displayName || '',
@@ -287,8 +291,14 @@ export default function Profile() {
             </div>
             <div className="flex items-center justify-center gap-1 text-yellow-500 font-bold">
               <Star className="w-4 h-4 fill-yellow-500" />
-              <span>{profile.rating || '5.0'}</span>
-              <span className="text-muted-foreground font-normal text-sm">({profile.reviewCount || 0} reseñas)</span>
+              {hasReviews ? (
+                <>
+                  <span>{Number(profile.rating || 0).toFixed(1)}</span>
+                  <span className="text-muted-foreground font-normal text-sm">({profile.reviewCount || 0} reseñas)</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground font-semibold text-sm">Sin calificación</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -357,6 +367,16 @@ export default function Profile() {
                 </Button>
               </div>
             </form>
+
+            <div className="pt-4 border-t">
+              <Button
+                onClick={() => navigate('/subscription-plans')}
+                variant="outline"
+                className="rounded-full px-8 h-12 font-bold"
+              >
+                Mejorar Plan de Suscripción
+              </Button>
+            </div>
 
             {profile.role === 'musician' && (
               <div className="pt-4 border-t space-y-4">
@@ -487,8 +507,8 @@ export default function Profile() {
               </div>
             )}
             <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-muted-foreground">Telefono</p>
-              <p className="font-semibold">{profile.phone || '-'}</p>
+              <p className="text-muted-foreground">Plan de Suscripción</p>
+              <p className="font-semibold">{getPlanDetails(profile.subscription || 'free').name}</p>
             </div>
             <div className="rounded-xl bg-slate-50 p-4 sm:col-span-2">
               <p className="text-muted-foreground">Bio / descripcion</p>

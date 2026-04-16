@@ -45,6 +45,12 @@ service cloud.firestore {
              data.status in ['open', 'closed', 'completed'];
     }
 
+    function canUpdateRatingOnly(userId) {
+      return isAuthenticated() &&
+             request.auth.uid != userId &&
+             request.resource.data.diff(resource.data).changedKeys().hasOnly(['rating', 'reviewCount']);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -52,7 +58,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if (isOwner(userId) && isValidUser(request.resource.data)) || isAdmin();
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data)) || canUpdateRatingOnly(userId) || isAdmin();
     }
 
     match /musician_profiles/{userId} {

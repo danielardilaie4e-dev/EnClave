@@ -9,8 +9,8 @@ import {
   doc,
   updateDoc,
   getDoc,
-  limit,
-  deleteDoc
+  deleteDoc,
+  setDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -67,8 +67,21 @@ export interface Job {
   media?: JobMediaItem[];
   packages?: JobPackage[];
   faq?: JobFaq[];
+  selectedMusicianId?: string;
+  selectedMusicianName?: string;
+  completedAt?: any;
   status: 'open' | 'closed' | 'completed';
   createdAt?: any;
+}
+
+export interface ReviewInput {
+  jobId: string;
+  fromId: string;
+  fromName: string;
+  toId: string;
+  toName: string;
+  rating: number;
+  comment: string;
 }
 
 export const DEMO_JOBS: Job[] = [
@@ -159,26 +172,14 @@ export const deleteJob = async (jobId: string) => {
 };
 
 export const applyToJob = async (input: Omit<JobApplication, 'id' | 'status' | 'createdAt'>) => {
-  try {
-    const existingQuery = query(
-      collection(db, 'job_applications'),
-      where('jobId', '==', input.jobId),
-      where('musicianId', '==', input.musicianId),
-      limit(1)
-    );
+  const applicationId = `${input.jobId}__${input.musicianId}`;
+  const appDocRef = doc(db, 'job_applications', applicationId);
+  const existingApplication = await getDoc(appDocRef);
 
-    const existingSnapshot = await getDocs(existingQuery);
-    if (!existingSnapshot.empty) {
-      const error = new Error('Ya aplicaste a este gig.') as Error & { code?: string };
-      error.code = 'application/already-exists';
-      throw error;
-    }
-  } catch (error) {
-    const code = (error as { code?: string })?.code;
-    const canContinue = code === 'permission-denied' || code === 'failed-precondition';
-    if (!canContinue) {
-      throw error;
-    }
+  if (existingApplication.exists()) {
+    const error = new Error('Ya aplicaste a este gig.') as Error & { code?: string };
+    error.code = 'application/already-exists';
+    throw error;
   }
 
   const payload = JSON.parse(JSON.stringify({
@@ -187,32 +188,104 @@ export const applyToJob = async (input: Omit<JobApplication, 'id' | 'status' | '
     createdAt: serverTimestamp(),
   }));
 
-  const docRef = await addDoc(collection(db, 'job_applications'), payload);
-
-  return docRef.id;
+  await setDoc(appDocRef, payload);
+  return applicationId;
 };
 
 export const getJobApplications = async (jobId: string) => {
-  const q = query(collection(db, 'job_applications'), where('jobId', '==', jobId), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'job_applications'), where('jobId', '==', jobId));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((item) => ({ id: item.id, ...item.data() } as JobApplication));
+  return querySnapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() } as JobApplication))
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return bTime - aTime;
+    });
 };
 
 export const hasUserAppliedToJob = async (jobId: string, musicianId: string) => {
-  try {
-    const q = query(
-      collection(db, 'job_applications'),
-      where('jobId', '==', jobId),
-      where('musicianId', '==', musicianId),
-      limit(1)
-    );
-    const querySnapshot = await getDocs(q);
-    return !querySnapshot.empty;
-  } catch (error) {
-    const code = (error as { code?: string })?.code;
-    if (code === 'permission-denied' || code === 'failed-precondition') {
-      return false;
-    }
+  const appDocRef = doc(db, 'job_applications', `${jobId}__${musicianId}`);
+  const appDoc = await getDoc(appDocRef);
+  return appDoc.exists();
+};
+
+export const getMusicianApplications = async (musicianId: string) => {
+  const q = query(collection(db, 'job_applications'), where('musicianId', '==', musicianId));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() } as JobApplication))
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return bTime - aTime;
+    });
+};
+
+export const finalizeJobWithReview = async (
+  jobId: string,
+  employerId: string,
+  employerName: string,
+  application: JobApplication,
+  rating: number,
+  comment: string
+) => {
+  const jobRef = doc(db, 'jobs', jobId);
+  const jobDoc = await getDoc(jobRef);
+
+  if (!jobDoc.exists()) {
+    const error = new Error('Gig no encontrado.') as Error & { code?: string };
+    error.code = 'job/not-found';
     throw error;
   }
+
+  const jobData = jobDoc.data() as Job;
+  if (jobData.employerId !== employerId) {
+    const error = new Error('No autorizado para finalizar este gig.') as Error & { code?: string };
+    error.code = 'job/not-owner';
+    throw error;
+  }
+
+  const reviewDocId = `${jobId}__${application.musicianId}`;
+  const reviewRef = doc(db, 'reviews', reviewDocId);
+  const existingReview = await getDoc(reviewRef);
+  if (existingReview.exists()) {
+    const error = new Error('Este artista ya fue reseñado para este gig.') as Error & { code?: string };
+    error.code = 'review/already-exists';
+    throw error;
+  }
+
+  await setDoc(reviewRef, {
+    jobId,
+    fromId: employerId,
+    fromName: employerName,
+    toId: application.musicianId,
+    toName: application.musicianName,
+    rating,
+    comment,
+    createdAt: serverTimestamp(),
+  });
+
+  await updateDoc(jobRef, {
+    status: 'completed',
+    selectedMusicianId: application.musicianId,
+    selectedMusicianName: application.musicianName,
+    completedAt: serverTimestamp(),
+  });
+
+  const selectedApplicationRef = doc(db, 'job_applications', `${jobId}__${application.musicianId}`);
+  await updateDoc(selectedApplicationRef, { status: 'shortlisted' });
+
+  const musicianReviewsQuery = query(collection(db, 'reviews'), where('toId', '==', application.musicianId));
+  const musicianReviewsSnapshot = await getDocs(musicianReviewsQuery);
+  const musicianReviews = musicianReviewsSnapshot.docs.map((item) => item.data() as { rating?: number });
+  const reviewCount = musicianReviews.length;
+  const totalRating = musicianReviews.reduce((acc, item) => acc + (item.rating || 0), 0);
+  const averageRating = reviewCount > 0 ? Number((totalRating / reviewCount).toFixed(1)) : 0;
+
+  const musicianRef = doc(db, 'users', application.musicianId);
+  await updateDoc(musicianRef, {
+    rating: averageRating,
+    reviewCount,
+  });
 };

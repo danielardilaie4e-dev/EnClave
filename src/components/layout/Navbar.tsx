@@ -7,9 +7,9 @@ import {
   User, 
   LogOut, 
   LayoutDashboard, 
-  Search,
   Menu,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -44,11 +44,6 @@ export default function Navbar() {
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-6">
-          <Link to="/jobs" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1.5">
-            <Search className="w-4 h-4" />
-            Buscar Gigs
-          </Link>
-          
           {user ? (
             <div className="flex items-center gap-4">
               <Link to="/dashboard" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1.5">
@@ -68,6 +63,12 @@ export default function Navbar() {
                     <User className="mr-2 h-4 w-4" />
                     <span>Mi Perfil</span>
                   </DropdownMenuItem>
+                  {profile?.role === 'musician' && (
+                    <DropdownMenuItem onClick={() => navigate('/applications')}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      <span>Mis Postulaciones</span>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Cerrar Sesión</span>
@@ -93,13 +94,6 @@ export default function Navbar() {
       {/* Mobile Nav */}
       {isMenuOpen && (
         <div className="md:hidden border-t bg-white p-4 space-y-4 animate-in slide-in-from-top duration-200">
-          <Link 
-            to="/jobs" 
-            className="block text-lg font-medium py-2"
-            onClick={() => setIsMenuOpen(false)}
-          >
-            Buscar Gigs
-          </Link>
           {user ? (
             <>
               <Link 
@@ -116,6 +110,15 @@ export default function Navbar() {
               >
                 Mi Perfil
               </Link>
+              {profile?.role === 'musician' && (
+                <Link 
+                  to="/applications" 
+                  className="block text-lg font-medium py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Mis Postulaciones
+                </Link>
+              )}
               <Button 
                 variant="destructive" 
                 className="w-full justify-start" 
